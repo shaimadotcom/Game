@@ -1,4 +1,43 @@
 console.clear();
+
+// API Configuration
+const API_BASE_URL = `http://${window.location.hostname}:3000/api`;
+
+// Helper: Submit score to backend
+async function submitScore(name, score) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/scores`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, score })
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error submitting score:', error);
+    return { success: false, error: 'Network error' };
+  }
+}
+
+// Helper: Fetch leaderboard from backend
+async function fetchLeaderboard() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/leaderboard`);
+    const data = await response.json();
+    return data.success ? data.leaderboard : [];
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error);
+    return [];
+  }
+}
+
+// Helper: Escape HTML to prevent XSS
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 var Stage = /** @class */ (function () {
   function Stage() {
     // container
@@ -253,8 +292,17 @@ var Game = /** @class */ (function () {
       RESETTING: "resetting",
     };
     this.blocks = [];
+    this.blockSounds = [`http://${window.location.hostname}:3000/sound/Stone_hit5.ogg`, `http://${window.location.hostname}:3000/sound/Stone_hit6.ogg`, `http://${window.location.hostname}:3000/sound/Stone_mining4.ogg.mp3`];
+    this.backgroundMusic = new Audio(`http://${window.location.hostname}:3000/sound/subwoofer_lullaby.mp3`);
+    this.backgroundMusic.loop = true;
+    this.backgroundMusic.volume = 0.02; // very low ambient volume
+    this.preloadedSounds = this.blockSounds.map(sound => new Audio(sound));
+    this.audioUnlocked = false;
     this.state = this.STATES.LOADING;
     this.stage = new Stage();
+    this.playerName = '';
+    this.lastSubmittedName = '';
+    this.finalScore = 0;
     this.mainContainer = document.getElementById("container");
     this.scoreContainer = document.getElementById("score");
     this.startButton = document.getElementById("start-button");
@@ -268,7 +316,7 @@ var Game = /** @class */ (function () {
     this.stage.add(this.choppedBlocks);
     this.addBlock();
     this.tick();
-    this.updateState(this.STATES.READY);
+    this.showNameInput(null, true);
     document.addEventListener("keydown", function (e) {
       if (e.keyCode == 32) _this.onAction();
     });
@@ -276,8 +324,38 @@ var Game = /** @class */ (function () {
       _this.onAction();
     });
     document.addEventListener("touchstart", function (e) {
-      e.preventDefault();
+      // Prevent default only if no modals are active to allow modal interactions on mobile
+      if (!document.querySelector('.name-input-modal.active, .leaderboard-modal.active')) {
+        e.preventDefault();
+      }
+    });
 
+    // Name input modal events
+    document.getElementById('submit-score-btn').addEventListener('click', function () {
+      var name = document.getElementById('player-name').value;
+      _this.submitScore(name);
+    });
+    document.getElementById('player-name').addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') {
+        _this.submitScore(document.getElementById('player-name').value);
+      }
+    });
+    document.getElementById('skip-submit').addEventListener('click', function () {
+      _this.hideNameInput();
+    });
+
+    // Leaderboard modal events
+    document.getElementById('close-leaderboard').addEventListener('click', function () {
+      _this.hideLeaderboard();
+    });
+
+    // Close modals on overlay click
+    document.querySelectorAll('.name-input-modal, .leaderboard-modal').forEach(modal => {
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) {
+          modal.classList.remove('active');
+        }
+      });
     });
   }
   Game.prototype.updateState = function (newState) {
@@ -287,6 +365,14 @@ var Game = /** @class */ (function () {
     this.state = newState;
   };
   Game.prototype.onAction = function () {
+    // Unlock audio for mobile browsers
+    if (!this.audioUnlocked) {
+      const unlockAudio = new Audio(this.blockSounds[0]);
+      unlockAudio.volume = 0;
+      unlockAudio.play().then(() => {
+        this.audioUnlocked = true;
+      }).catch(() => {});
+    }
     switch (this.state) {
       case this.STATES.READY:
         this.startGame();
@@ -303,6 +389,7 @@ var Game = /** @class */ (function () {
     if (this.state != this.STATES.PLAYING) {
       this.scoreContainer.innerHTML = "0";
       this.updateState(this.STATES.PLAYING);
+      this.backgroundMusic.play().catch(() => {});
       this.addBlock();
     }
   };
@@ -351,7 +438,11 @@ var Game = /** @class */ (function () {
     var currentBlock = this.blocks[this.blocks.length - 1];
     var newBlocks = currentBlock.place();
     this.newBlocks.remove(currentBlock.mesh);
-    if (newBlocks.placed) this.placedBlocks.add(newBlocks.placed);
+    if (newBlocks.placed) {
+      this.placedBlocks.add(newBlocks.placed);
+      const randomSound = this.preloadedSounds[Math.floor(Math.random() * this.preloadedSounds.length)];
+      randomSound.play();
+    }
     if (newBlocks.chopped) {
       this.choppedBlocks.add(newBlocks.chopped);
       var positionParams = {
@@ -403,10 +494,108 @@ var Game = /** @class */ (function () {
   };
   Game.prototype.endGame = function () {
     this.updateState(this.STATES.ENDED);
+    this.backgroundMusic.pause();
+    // Auto-submit score
+    this.finalScore = this.blocks.length - 1;
+    this.submitScore(this.playerName);
   };
+
+  Game.prototype.showNameInput = function (score, isInitial) {
+    var _this = this;
+    if (isInitial) {
+      this.finalScore = 0;
+      document.querySelector('.modal-content h2').textContent = 'Enter Your Name';
+      document.getElementById('final-score').parentElement.style.display = 'none';
+      document.getElementById('submit-score-btn').textContent = 'Start Game';
+      document.getElementById('skip-submit').style.display = 'none';
+    } else {
+      this.finalScore = score;
+      document.querySelector('.modal-content h2').textContent = 'Game Over!';
+      document.getElementById('final-score').textContent = score;
+      document.getElementById('final-score').parentElement.style.display = 'block';
+      document.getElementById('submit-score-btn').textContent = 'Submit';
+      document.getElementById('skip-submit').style.display = 'block';
+    }
+    document.getElementById('player-name').value = '';
+    document.getElementById('name-error').textContent = '';
+    document.querySelector('.name-input-modal').classList.add('active');
+    document.getElementById('player-name').focus();
+  };
+
+  Game.prototype.hideNameInput = function () {
+    document.querySelector('.name-input-modal').classList.remove('active');
+  };
+
+  Game.prototype.submitScore = async function (playerName) {
+    var _this = this;
+    const name = playerName.trim();
+    if (!name) {
+      document.getElementById('name-error').textContent = 'Please enter your name';
+      return;
+    }
+
+    if (this.finalScore > 0) {
+      // Game over: submit score
+      const result = await submitScore(name, this.finalScore);
+      if (result.success) {
+        this.lastSubmittedName = name;
+        this.hideNameInput();
+        this.showLeaderboard();
+      } else {
+        document.getElementById('name-error').textContent = result.error || 'Failed to submit score';
+      }
+    } else {
+      // Initial: store name and proceed to ready
+      this.playerName = name;
+      this.hideNameInput();
+      this.updateState(this.STATES.READY);
+    }
+  };
+
+  Game.prototype.showLeaderboard = function () {
+    this.updateLeaderboardDisplay();
+    document.querySelector('.leaderboard-modal').classList.add('active');
+  };
+
+  Game.prototype.hideLeaderboard = function () {
+    document.querySelector('.leaderboard-modal').classList.remove('active');
+  };
+
+  Game.prototype.updateLeaderboardDisplay = async function () {
+    var _this = this;
+    const leaderboard = await fetchLeaderboard();
+    const listContainer = document.getElementById('leaderboard-list');
+
+    if (leaderboard.length === 0) {
+      listContainer.innerHTML = '<div class="leaderboard-empty">No scores yet. Be the first!</div>';
+      return;
+    }
+
+    const entries = leaderboard.map((entry, index) => {
+      const rank = index + 1;
+      const date = new Date(entry.timestamp).toLocaleDateString();
+      const isTop3 = rank <= 3;
+      const isCurrentPlayer = entry.name === this.lastSubmittedName && entry.score === this.finalScore;
+
+      return `
+        <div class="leaderboard-entry ${isTop3 ? 'top-rank' : ''} ${isCurrentPlayer ? 'current-player' : ''}">
+          <span class="rank">#${rank}</span>
+          <span class="player-name">${escapeHtml(entry.name)}</span>
+          <span class="player-score">${entry.score}</span>
+          <span class="player-date">${date}</span>
+        </div>
+      `;
+    }).join('');
+
+    listContainer.innerHTML = entries;
+  };
+
   Game.prototype.tick = function () {
     var _this = this;
-    this.blocks[this.blocks.length - 1].tick();
+    // Only update blocks if game is in playing state and name modal is not active
+    if (this.state === this.STATES.PLAYING && !document.querySelector('.name-input-modal').classList.contains('active')) {
+      this.blocks[this.blocks.length - 1].tick();
+    }
     this.stage.render();
     requestAnimationFrame(function () {
       _this.tick();

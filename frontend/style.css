@@ -105,3 +105,267 @@ body {
 #container.ended .game-over p {
   transition-delay: 0.3s;
 }
+
+/* Leaderboard Button */
+#leaderboard-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  padding: 10px 20px;
+  background-color: transparent;
+  border: 2px solid #334;
+  color: #334;
+  font-family: "Comfortaa", cursive;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 100;
+}
+#leaderboard-btn:hover {
+  background-color: #334;
+  color: #D0CBC7;
+  transform: scale(1.05);
+}
+
+/* Modal Overlay (shared by both modals) */
+.name-input-modal,
+.leaderboard-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(51, 51, 68, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.name-input-modal.active,
+.leaderboard-modal.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Modal Content Box */
+.modal-content {
+  background-color: #D0CBC7;
+  padding: 40px;
+  border-radius: 10px;
+  text-align: center;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  transform: translateY(-20px);
+  transition: transform 0.3s ease;
+}
+.name-input-modal.active .modal-content,
+.leaderboard-modal.active .modal-content {
+  transform: translateY(0);
+}
+
+/* Modal Typography */
+.modal-content h2 {
+  margin: 0 0 15px 0;
+  color: #334;
+  font-size: 28px;
+}
+.modal-content p {
+  color: #334;
+  font-size: 16px;
+  margin: 10px 0;
+}
+
+/* Name Input Group */
+.input-group {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+}
+.input-group input {
+  flex: 1;
+  padding: 12px 15px;
+  border: 2px solid #334;
+  border-radius: 5px;
+  font-family: "Comfortaa", cursive;
+  font-size: 16px;
+  background-color: #fff;
+  color: #334;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.input-group input:focus {
+  border-color: #556;
+}
+.input-group button {
+  padding: 12px 25px;
+  background-color: #334;
+  color: #D0CBC7;
+  border: none;
+  border-radius: 5px;
+  font-family: "Comfortaa", cursive;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+.input-group button:hover {
+  background-color: #445;
+  transform: scale(1.05);
+}
+.input-group button:active {
+  transform: scale(0.95);
+}
+
+/* Skip Button */
+.skip-btn {
+  background: none;
+  border: none;
+  color: #667788;
+  font-family: "Comfortaa", cursive;
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 10px;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+.skip-btn:hover {
+  color: #334;
+}
+
+/* Error Message */
+.error-message {
+  color: #c44;
+  font-size: 14px;
+  min-height: 20px;
+  margin: 5px 0 0 0;
+}
+
+/* Leaderboard Header */
+.leaderboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.leaderboard-header h2 {
+  margin: 0;
+}
+
+/* Close Button */
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 32px;
+  color: #334;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  transition: color 0.2s;
+}
+.close-btn:hover {
+  color: #c44;
+}
+
+/* Leaderboard List */
+.leaderboard-list {
+  max-height: 60vh;
+  overflow-y: auto;
+  text-align: left;
+}
+
+/* Individual Leaderboard Entry */
+.leaderboard-entry {
+  display: flex;
+  align-items: center;
+  padding: 12px 15px;
+  margin-bottom: 8px;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 6px;
+  border-left: 4px solid #334;
+  transition: transform 0.2s, background-color 0.2s;
+}
+.leaderboard-entry:hover {
+  background-color: rgba(255, 255, 255, 0.8);
+  transform: translateX(5px);
+}
+.leaderboard-entry.top-rank {
+  background-color: rgba(51, 51, 68, 0.1);
+  border-left-color: #d4a;
+}
+.leaderboard-entry.current-player {
+  background-color: rgba(51, 51, 68, 0.15);
+  border-left-color: #4a4;
+}
+
+.rank {
+  font-size: 20px;
+  font-weight: bold;
+  color: #334;
+  min-width: 40px;
+  text-align: center;
+}
+.player-name {
+  flex: 1;
+  font-size: 16px;
+  color: #334;
+  margin-left: 10px;
+}
+.player-score {
+  font-size: 18px;
+  font-weight: bold;
+  color: #334;
+}
+.player-date {
+  font-size: 12px;
+  color: #667788;
+  margin-left: 10px;
+}
+
+/* Empty State */
+.leaderboard-empty {
+  text-align: center;
+  color: #667788;
+  font-style: italic;
+  padding: 30px;
+}
+
+/* Scrollbar Styling */
+.leaderboard-list::-webkit-scrollbar {
+  width: 8px;
+}
+.leaderboard-list::-webkit-scrollbar-track {
+  background: rgba(51, 51, 68, 0.1);
+  border-radius: 4px;
+}
+.leaderboard-list::-webkit-scrollbar-thumb {
+  background: #334;
+  border-radius: 4px;
+}
+.leaderboard-list::-webkit-scrollbar-thumb:hover {
+  background: #445;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .modal-content {
+    padding: 25px;
+    margin: 20px;
+  }
+  .input-group {
+    flex-direction: column;
+  }
+  .input-group button {
+    width: 100%;
+  }
+  #leaderboard-btn {
+    top: 10px;
+    right: 10px;
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+}

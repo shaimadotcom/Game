@@ -3,11 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <link rel="icon" type="image/png" href="/sound/blockchain.png">
     <meta name="viewport" content="width=device-width,user-scalable=no" />
     <script src="https://codepen.io/steveg3003/pen/zBVakw"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r83/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/latest/TweenMax.min.js"></script>
-    <title>Talha - Tower Blocks</title>
+    <title>Tower Blocks</title>
 
 
 
@@ -30,6 +31,34 @@
         <div id="start-button">Start</div>
         <div></div>
       </div>
+
+      <!-- Name Input Modal (shown on game over) -->
+      <div class="name-input-modal">
+        <div class="modal-content">
+          <h2>Game Over!</h2>
+          <p>Your score: <span id="final-score">0</span></p>
+          <div class="input-group">
+            <input type="text" id="player-name" placeholder="Enter your name" maxlength="20" autocomplete="off">
+            <button id="submit-score-btn">Submit</button>
+          </div>
+          <p class="error-message" id="name-error"></p>
+          <button class="skip-btn" id="skip-submit">Skip</button>
+        </div>
+      </div>
+
+      <!-- Leaderboard Modal -->
+      <div class="leaderboard-modal">
+        <div class="modal-content">
+          <div class="leaderboard-header">
+            <h2>Leaderboard</h2>
+            <button class="close-btn" id="close-leaderboard">&times;</button>
+          </div>
+          <div class="leaderboard-list" id="leaderboard-list">
+            <!-- Populated by JavaScript -->
+          </div>
+        </div>
+      </div>
+
     </div>
   </body>
 </html>
