@@ -292,8 +292,8 @@ var Game = /** @class */ (function () {
       RESETTING: "resetting",
     };
     this.blocks = [];
-    this.blockSounds = [`http://${window.location.hostname}:3000/sound/Stone_hit5.ogg`, `http://${window.location.hostname}:3000/sound/Stone_hit6.ogg`, `http://${window.location.hostname}:3000/sound/Stone_mining4.ogg.mp3`];
-    this.backgroundMusic = new Audio(`http://${window.location.hostname}:3000/sound/subwoofer_lullaby.mp3`);
+    this.blockSounds = ['/sound/Stone_hit5.ogg', '/sound/Stone_hit6.ogg', '/sound/Stone_mining4.ogg.mp3'];
+    this.backgroundMusic = new Audio('/sound/subwoofer_lullaby.mp3');
     this.backgroundMusic.loop = true;
     this.backgroundMusic.volume = 0.02; // very low ambient volume
     this.preloadedSounds = this.blockSounds.map(sound => new Audio(sound));
