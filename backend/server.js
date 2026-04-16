@@ -75,14 +75,33 @@ app.post('/api/scores', (req, res) => {
   }
 
   const scores = readScores();
-  const newScore = {
-    id: Date.now() + Math.random().toString(36).substr(2, 9),
-    name: name.trim().substring(0, 50), // Limit name length
-    score: score,
-    timestamp: new Date().toISOString()
-  };
+  const trimmedName = name.trim().substring(0, 50); // Limit name length
 
-  scores.push(newScore);
+  // Check if player already exists
+  const existingIndex = scores.findIndex(s => s.name.toLowerCase() === trimmedName.toLowerCase());
+
+  let newScore; // Declare to hold the score object for response
+
+  if (existingIndex !== -1) {
+    // Player exists: update only if new score is higher
+    if (score > scores[existingIndex].score) {
+      scores[existingIndex].score = score;
+      scores[existingIndex].timestamp = new Date().toISOString();
+      newScore = scores[existingIndex]; // Use updated entry for response
+    } else {
+      // New score is not higher, return success but don't update
+      return res.status(200).json({ success: true, message: 'Score not updated (lower or equal)', score: scores[existingIndex] });
+    }
+  } else {
+    // New player: add entry
+    newScore = {
+      id: Date.now() + Math.random().toString(36).substr(2, 9),
+      name: trimmedName,
+      score: score,
+      timestamp: new Date().toISOString()
+    };
+    scores.push(newScore);
+  }
   const saved = writeScores(scores);
 
   if (!saved) {
