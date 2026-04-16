@@ -1,4 +1,5 @@
 #!/bin/bash
+# 1. System Updates and Docker Installation
 apt-get update -y
 apt-get install -y ca-certificates curl
 install -m 0755 -d /etc/apt/keyrings
@@ -10,16 +11,21 @@ apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin do
 systemctl start docker
 systemctl enable docker
 
-mkdir -p /app
-cat <<-PKGJSON > /app/package.json
+# Wait for Docker daemon to settle
+sleep 10
+
+# 2. Setup Application Directory
+mkdir -p /app/data
+cd /app
+
+# 3. Create Backend Files
+cat << 'PKGJSON' > package.json
 {
   "name": "game-leaderboard-backend",
   "version": "1.0.0",
-  "description": "Leaderboard backend for tower block game",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -28,7 +34,7 @@ cat <<-PKGJSON > /app/package.json
 }
 PKGJSON
 
-cat <<-SERVERJS > /app/server.js
+cat << 'SERVERJS' > server.js
 const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
@@ -41,6 +47,7 @@ const DATA_FILE = path.join(__dirname, 'data', 'scores.json');
 app.use(cors());
 app.use(express.json());
 
+// Ensure data directory exists
 const dataDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
@@ -55,7 +62,6 @@ function readScores() {
     const data = fs.readFileSync(DATA_FILE, 'utf8');
     return JSON.parse(data);
   } catch (err) {
-    console.error('Error reading scores:', err);
     return [];
   }
 }
@@ -65,31 +71,18 @@ function writeScores(scores) {
     fs.writeFileSync(DATA_FILE, JSON.stringify(scores, null, 2));
     return true;
   } catch (err) {
-    console.error('Error writing scores:', err);
     return false;
   }
 }
 
 app.get('/api/leaderboard', (req, res) => {
   const scores = readScores();
-  scores.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    return new Date(b.timestamp) - new Date(a.timestamp);
-  });
-  const top10 = scores.slice(0, 10);
-  res.json({ success: true, leaderboard: top10 });
+  scores.sort((a, b) => b.score - a.score);
+  res.json({ success: true, leaderboard: scores.slice(0, 10) });
 });
 
 app.post('/api/scores', (req, res) => {
   const { name, score } = req.body;
-
-  if (!name || typeof name !== 'string' || name.trim().length === 0) {
-    return res.status(400).json({ success: false, error: 'Player name is required' });
-  }
-  if (score === undefined || typeof score !== 'number' || !Number.isInteger(score) || score < 0) {
-    return res.status(400).json({ success: false, error: 'Valid positive integer score is required' });
-  }
-
   const scores = readScores();
   const newScore = {
     id: Date.now() + Math.random().toString(36).substr(2, 9),
@@ -97,45 +90,19 @@ app.post('/api/scores', (req, res) => {
     score: score,
     timestamp: new Date().toISOString()
   };
-
   scores.push(newScore);
-  const saved = writeScores(scores);
-
-  if (!saved) {
-    return res.status(500).json({ success: false, error: 'Failed to save score' });
-  }
-
-  res.status(201).json({ success: true, message: 'Score submitted successfully', score: newScore });
+  writeScores(scores);
+  res.status(201).json({ success: true, score: newScore });
 });
 
-app.get('/api/scores', (req, res) => {
-  const scores = readScores();
-  res.json({ success: true, count: scores.length, scores: scores });
-});
-
-app.delete('/api/scores', (req, res) => {
-  const success = writeScores([]);
-  if (success) {
-    res.json({ success: true, message: 'All scores cleared' });
-  } else {
-    res.status(500).json({ success: false, error: 'Failed to clear scores' });
-  }
-});
-
-app.listen(PORT, () => {
-  console.log('Leaderboard server running on http://localhost:' + PORT);
-  console.log('API endpoints:');
-  console.log('  GET    /api/leaderboard');
-  console.log('  POST   /api/scores');
-  console.log('  GET    /api/scores');
-  console.log('  DELETE /api/scores');
-});
+app.listen(PORT, () => console.log('Backend running on port ' + PORT));
 SERVERJS
 
-mkdir -p /app/data
+# Initialize the data file on the host
 echo '[]' > /app/data/scores.json
 
-cat <<-DOCKERFILE > /app/Dockerfile
+# 4. Create Dockerfile
+cat << 'DOCKERFILE' > Dockerfile
 FROM node:18
 WORKDIR /app
 COPY package.json .
@@ -145,6 +112,7 @@ EXPOSE 3000
 CMD ["node", "server.js"]
 DOCKERFILE
 
-cd /app
+# 5. Build and Run with Data Persistence
 docker build -t backend .
-docker run -d -p 3000:3000 --name backend backend
+# We mount the /app/data folder so scores aren't deleted if the container stops
+docker run -d -p 3000:3000 -v /app/data:/app/data --name backend backend
