@@ -14,7 +14,7 @@ resource "google_compute_instance" "vm_backend" {
     access_config {}
   }
 
-  metadata_startup_script = <<-EOF
+  metadata_startup_script = <<-INNER_EOF
     #!/bin/bash
     apt-get update -y
     apt-get install -y ca-certificates curl
@@ -28,7 +28,7 @@ resource "google_compute_instance" "vm_backend" {
     systemctl enable docker
 
     mkdir -p /app
-    cat <<'EOF' > /app/package.json
+    cat <<'INNER_INNER_EOF' > /app/package.json
     {
       "name": "game-leaderboard-backend",
       "version": "1.0.0",
@@ -43,9 +43,9 @@ resource "google_compute_instance" "vm_backend" {
         "cors": "^2.8.5"
       }
     }
-    EOF
+    INNER_EOF
 
-    cat <<'EOF' > /app/server.js
+    cat <<'INNER_EOF' > /app/server.js
     const express = require('express');
     const cors = require('cors');
     const fs = require('fs');
@@ -159,12 +159,12 @@ resource "google_compute_instance" "vm_backend" {
       console.log(`  GET    /api/scores`);
       console.log(`  DELETE /api/scores`);
     });
-    EOF
+    INNER_EOF
 
     mkdir -p /app/data
     echo '[]' > /app/data/scores.json
 
-    cat <<'EOF' > /app/Dockerfile
+    cat <<'INNER_EOF' > /app/Dockerfile
     FROM node:18
     WORKDIR /app
     COPY package.json .
@@ -172,12 +172,12 @@ resource "google_compute_instance" "vm_backend" {
     COPY . .
     EXPOSE 3000
     CMD ["node", "server.js"]
-    EOF
+    INNER_EOF
 
     cd /app
     docker build -t backend .
     docker run -d -p 3000:3000 --name backend backend
-  EOF
+  INNER_EOF
 
   tags = ["backend"]
 }
@@ -198,7 +198,7 @@ resource "google_compute_instance" "vm_frontend" {
     access_config {}
   }
 
-  metadata_startup_script = <<-EOF
+  metadata_startup_script = <<-INNER_EOF
     #!/bin/bash
     apt-get update -y
     apt-get install -y ca-certificates curl
@@ -212,7 +212,7 @@ resource "google_compute_instance" "vm_frontend" {
     systemctl enable docker
 
     mkdir -p /app
-    cat <<'EOF' > /app/index.html
+    cat <<'INNER_EOF' > /app/index.html
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -272,9 +272,9 @@ resource "google_compute_instance" "vm_frontend" {
     </div>
   </body>
 </html>
-EOF
+INNER_EOF
 
-    cat <<'EOF' > /app/style.css
+    cat <<'INNER_EOF' > /app/style.css
 @import url("https://fonts.googleapis.com/css?family=Comfortaa");
 html,
 body {
@@ -618,9 +618,9 @@ body {
     width: 100%;
   }
 }
-EOF
+INNER_EOF
 
-    cat <<'EOF' > /app/script.js
+    cat <<'INNER_EOF' > /app/script.js
 console.clear();
 
 // API Configuration
@@ -1209,26 +1209,26 @@ var Game = /** @class */ (function () {
   return Game;
 })();
 var game = new Game();
-EOF
+INNER_EOF
 
     mkdir -p /app/sound
-    cat <<'EOF' > /app/sound/placeholder.txt
+    cat <<'INNER_EOF' > /app/sound/placeholder.txt
 Sound files would be copied here
-EOF
+INNER_EOF
 
-    cat <<'EOF' > /app/Dockerfile
+    cat <<'INNER_EOF' > /app/Dockerfile
 FROM nginx:alpine
 COPY index.html /usr/share/nginx/html/
 COPY style.css /usr/share/nginx/html/
 COPY script.js /usr/share/nginx/html/
 COPY sound /usr/share/nginx/html/sound/
 EXPOSE 80
-EOF
+INNER_EOF
 
     cd /app
     docker build -t frontend .
     docker run -d -p 80:80 --name frontend frontend
-  EOF
+  INNER_EOF
 
   tags = ["frontend"]
   depends_on = [google_compute_instance.vm_backend]
