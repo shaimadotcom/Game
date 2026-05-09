@@ -1,0 +1,540 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Tower Blocks Game - Multi-AZ 3-Tier Architecture with EFS",
+  "Parameters": {
+    "GitHubRepoURL": {
+      "Type": "String",
+      "Description": "GitHub repository URL (https://github.com/user/repo.git)",
+      "Default": "https://github.com/shaimadotcom/Game.git"
+    },
+    "GitHubBranch": {
+      "Type": "String",
+      "Description": "GitHub branch to deploy",
+      "Default": "AWSdemo"
+    },
+    "GitHubToken": {
+      "Type": "String",
+      "Description": "GitHub Personal Access Token (if private repo, otherwise leave blank)",
+      "Default": "",
+      "NoEcho": true
+    }
+  },
+  "Resources": {
+    "TowerVPC": {
+      "Type": "AWS::EC2::VPC",
+      "Properties": {
+        "CidrBlock": "10.0.0.0/16",
+        "EnableDnsSupport": true,
+        "EnableDnsHostnames": true,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "TowerVPC"
+          }
+        ]
+      }
+    },
+    "InternetGateway": {
+      "Type": "AWS::EC2::InternetGateway"
+    },
+    "VPCGatewayAttachment": {
+      "Type": "AWS::EC2::VPCGatewayAttachment",
+      "Properties": {
+        "VpcId": {
+          "Ref": "TowerVPC"
+        },
+        "InternetGatewayId": {
+          "Ref": "InternetGateway"
+        }
+      }
+    },
+    "PublicSubnetA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "TowerVPC"
+        },
+        "CidrBlock": "10.0.1.0/24",
+        "AvailabilityZone": "us-east-1a",
+        "MapPublicIpOnLaunch": true,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "PublicSubnetA"
+          }
+        ]
+      }
+    },
+    "PublicSubnetB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "TowerVPC"
+        },
+        "CidrBlock": "10.0.2.0/24",
+        "AvailabilityZone": "us-east-1b",
+        "MapPublicIpOnLaunch": true,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "PublicSubnetB"
+          }
+        ]
+      }
+    },
+    "AppSubnetA": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "TowerVPC"
+        },
+        "CidrBlock": "10.0.3.0/24",
+        "AvailabilityZone": "us-east-1a",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "AppSubnetA"
+          }
+        ]
+      }
+    },
+    "AppSubnetB": {
+      "Type": "AWS::EC2::Subnet",
+      "Properties": {
+        "VpcId": {
+          "Ref": "TowerVPC"
+        },
+        "CidrBlock": "10.0.4.0/24",
+        "AvailabilityZone": "us-east-1b",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "AppSubnetB"
+          }
+        ]
+      }
+    },
+    "NATGateway": {
+      "Type": "AWS::EC2::NatGateway",
+      "Properties": {
+        "AllocationId": {
+          "Fn::GetAtt": [
+            "EIP",
+            "AllocationId"
+          ]
+        },
+        "SubnetId": {
+          "Ref": "PublicSubnetA"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "NATGateway"
+          }
+        ]
+      }
+    },
+    "EIP": {
+      "Type": "AWS::EC2::EIP",
+      "Properties": {
+        "Domain": "vpc",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "NAT-EIP"
+          }
+        ]
+      }
+    },
+    "AppRouteTable": {
+      "Type": "AWS::EC2::RouteTable",
+      "Properties": {
+        "VpcId": {
+          "Ref": "TowerVPC"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "AppRouteTable"
+          }
+        ]
+      }
+    },
+    "AppRoute": {
+      "Type": "AWS::EC2::Route",
+      "Properties": {
+        "RouteTableId": {
+          "Ref": "AppRouteTable"
+        },
+        "DestinationCidrBlock": "0.0.0.0/0",
+        "NatGatewayId": {
+          "Ref": "NATGateway"
+        }
+      }
+    },
+    "AppSubnetARouteAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "AppSubnetA"
+        },
+        "RouteTableId": {
+          "Ref": "AppRouteTable"
+        }
+      }
+    },
+    "AppSubnetBRouteAssociation": {
+      "Type": "AWS::EC2::SubnetRouteTableAssociation",
+      "Properties": {
+        "SubnetId": {
+          "Ref": "AppSubnetB"
+        },
+        "RouteTableId": {
+          "Ref": "AppRouteTable"
+        }
+      }
+    },
+    "TowerALB": {
+      "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+      "Properties": {
+        "Name": "tower-alb",
+        "Scheme": "internet-facing",
+        "Subnets": [
+          {
+            "Ref": "PublicSubnetA"
+          },
+          {
+            "Ref": "PublicSubnetB"
+          }
+        ],
+        "SecurityGroups": [
+          {
+            "Ref": "ALBSG"
+          }
+        ],
+        "Type": "application",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "TowerALB"
+          }
+        ]
+      }
+    },
+    "ALBSG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Public Load Balancer SG - HTTP 80 from internet",
+        "VpcId": {
+          "Ref": "TowerVPC"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 80,
+            "ToPort": 80,
+            "CidrIp": "0.0.0.0/0"
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "-1",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "ALB-SecurityGroup"
+          }
+        ]
+      }
+    },
+    "AppSG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "App Server SG - allows ALB on port 3000",
+        "VpcId": {
+          "Ref": "TowerVPC"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 3000,
+            "ToPort": 3000,
+            "SourceSecurityGroupId": {
+              "Ref": "ALBSG"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 22,
+            "ToPort": 22,
+            "SourceSecurityGroupId": {
+              "Ref": "ALBSG"
+            }
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "-1",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "App-SecurityGroup"
+          }
+        ]
+      }
+    },
+    "EFSSG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "EFS Security Group - allows NFS from App instances",
+        "VpcId": {
+          "Ref": "TowerVPC"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": 2049,
+            "ToPort": 2049,
+            "SourceSecurityGroupId": {
+              "Ref": "AppSG"
+            }
+          }
+        ],
+        "SecurityGroupEgress": [
+          {
+            "IpProtocol": "-1",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "EFS-SecurityGroup"
+          }
+        ]
+      }
+    },
+    "SharedFileSystem": {
+      "Type": "AWS::EFS::FileSystem",
+      "Properties": {
+        "Encrypted": true,
+        "PerformanceMode": "generalPurpose",
+        "ThroughputMode": "bursting",
+        "FileSystemTags": [
+          {
+            "Key": "Name",
+            "Value": "TowerScores"
+          }
+        ]
+      }
+    },
+    "EFSMountTargetA": {
+      "Type": "AWS::EFS::MountTarget",
+      "Properties": {
+        "FileSystemId": {
+          "Ref": "SharedFileSystem"
+        },
+        "SubnetId": {
+          "Ref": "AppSubnetA"
+        },
+        "SecurityGroups": [
+          {
+            "Ref": "EFSSG"
+          }
+        ]
+      }
+    },
+    "EFSMountTargetB": {
+      "Type": "AWS::EFS::MountTarget",
+      "Properties": {
+        "FileSystemId": {
+          "Ref": "SharedFileSystem"
+        },
+        "SubnetId": {
+          "Ref": "AppSubnetB"
+        },
+        "SecurityGroups": [
+          {
+            "Ref": "EFSSG"
+          }
+        ]
+      }
+    },
+    "TargetGroup": {
+      "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+      "Properties": {
+        "Name": "tower-target-group",
+        "Port": 3000,
+        "Protocol": "HTTP",
+        "VpcId": {
+          "Ref": "TowerVPC"
+        },
+        "TargetType": "instance",
+        "HealthCheckProtocol": "HTTP",
+        "HealthCheckPort": "3000",
+        "HealthCheckPath": "/api/leaderboard",
+        "HealthCheckIntervalSeconds": 30,
+        "HealthCheckTimeoutSeconds": 5,
+        "HealthyThresholdCount": 2,
+        "UnhealthyThresholdCount": 2,
+        "Matcher": {
+          "HttpCode": "200-299"
+        },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "TowerTargetGroup"
+          }
+        ]
+      }
+    },
+    "Listener": {
+      "Type": "AWS::ElasticLoadBalancingV2::Listener",
+      "Properties": {
+        "LoadBalancerArn": {
+          "Ref": "TowerALB"
+        },
+        "Port": 80,
+        "Protocol": "HTTP",
+        "DefaultActions": [
+          {
+            "Type": "forward",
+            "TargetGroupArn": {
+              "Ref": "TargetGroup"
+            }
+          }
+        ]
+      }
+    },
+    "TowerLaunchTemplate": {
+      "Type": "AWS::EC2::LaunchTemplate",
+      "Properties": {
+        "LaunchTemplateName": "tower-launch-template",
+        "LaunchTemplateData": {
+          "ImageId": "ami-0c55b159cbfafe1f0",
+          "InstanceType": "t3.micro",
+          "SecurityGroupIds": [
+            {
+              "Ref": "AppSG"
+            }
+          ],
+          "UserData": {
+            "Fn::Base64": {
+              "Fn::Sub": [
+                "#!/bin/bash\nset -e\n\n# Update and install dependencies\nyum update -y\nyum install -y docker git amazon-efs-utils aws-cli\n\n# Install Docker Compose if not present\nif ! command -v docker-compose &> /dev/null; then\n  curl -L \"https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)\" -o /usr/local/bin/docker-compose\n  chmod +x /usr/local/bin/docker-compose\nfi\n\n# Start Docker\nservice docker start\nusermod -a -G docker ec2-user\n\n# Create app directory\nmkdir -p /home/ec2-user/app\ncd /home/ec2-user\n\n# Clone repository with or without token\nif [ -z \"${GitHubToken}\" ]; then\n  git clone ${GitHubRepoURL} game\nelse\n  # Insert token into URL for authentication\n  AUTH_URL=$(echo ${GitHubRepoURL} | sed \"s|https://|https://${GitHubToken}@|\")\n  git clone ${AUTH_URL} game\nfi\n\ncd game\n\n# Mount EFS to /app/data for shared score storage\nmkdir -p /app/data\necho \"${SharedFileSystem}.efs.${AWS::Region}.amazonaws.com:/ /app/data efs defaults,_netdev 0 0\" >> /etc/fstab\nmount -a -t efs -o tls\n\n# Wait for EFS to be ready\nsleep 10\n\n# Ensure data directory exists and has proper permissions\nmkdir -p /app/data\nchmod 777 /app/data\n\n# Build and run with Docker Compose\ncat > /home/ec2-user/game/docker-compose.yml << 'EOF'\nversion: '3.8'\nservices:\n  backend:\n    build: ./backend\n    ports:\n      - \"3000:3000\"\n    volumes:\n      - /app/data:/app/data\n      - ./sound:/sound\n    environment:\n      - PORT=3000\n    restart: unless-stopped\n\n  frontend:\n    build: ./frontend\n    ports:\n      - \"80:80\"\n    depends_on:\n      - backend\n    restart: unless-stopped\n\nnetworks:\n  default:\n    driver: bridge\nEOF\n\n# Start containers\ndocker-compose up -d\n\n# Wait for containers to be ready\nsleep 30\n\n# Register instance with Target Group\nINSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)\naws elbv2 register-targets --target-group-arn ${TargetGroupArn} --targets Id=${INSTANCE_ID}\n\necho \"Deployment complete at $(date)\"",
+                {
+                  "GitHubRepoURL": {
+                    "Ref": "GitHubRepoURL"
+                  },
+                  "GitHubBranch": {
+                    "Ref": "GitHubBranch"
+                  },
+                  "GitHubToken": {
+                    "Ref": "GitHubToken"
+                  },
+                  "SharedFileSystem": {
+                    "Ref": "SharedFileSystem"
+                  },
+                  "TargetGroupArn": {
+                    "Ref": "TargetGroup"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "TagSpecifications": [
+          {
+            "ResourceType": "instance",
+            "Tags": [
+              {
+                "Key": "Name",
+                "Value": "TowerGameInstance"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "AppASG": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "AutoScalingGroupName": "tower-asg",
+        "VPCZoneIdentifier": [
+          {
+            "Ref": "AppSubnetA"
+          },
+          {
+            "Ref": "AppSubnetB"
+          }
+        ],
+        "LaunchTemplate": {
+          "LaunchTemplateId": {
+            "Ref": "TowerLaunchTemplate"
+          },
+          "Version": "1"
+        },
+        "MinSize": "2",
+        "MaxSize": "4",
+        "DesiredCapacity": "2",
+        "HealthCheckType": "ELB",
+        "HealthCheckGracePeriod": 300,
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": "TowerInstance"
+          }
+        ]
+      }
+    },
+    "AppASGScalingPolicy": {
+      "Type": "AWS::AutoScaling::ScalingPolicy",
+      "Properties": {
+        "AutoScalingGroupName": {
+          "Ref": "AppASG"
+        },
+        "PolicyType": "TargetTrackingScaling",
+        "TargetTrackingConfiguration": {
+          "PredefinedMetricSpecification": {
+            "PredefinedMetricType": "ASGAverageCPUUtilization"
+          },
+          "TargetValue": 70.0
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "LoadBalancerDNS": {
+      "Description": "DNS name of the Application Load Balancer",
+      "Value": {
+        "Fn::GetAtt": [
+          "TowerALB",
+          "DNSName"
+        ]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-LoadBalancerDNS"
+        }
+      }
+    },
+    "VPCId": {
+      "Description": "VPC ID",
+      "Value": {
+        "Ref": "TowerVPC"
+      }
+    },
+    "EFSFileSystemId": {
+      "Description": "EFS File System ID",
+      "Value": {
+        "Ref": "SharedFileSystem"
+      }
+    }
+  }
+}
