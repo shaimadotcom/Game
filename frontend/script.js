@@ -1,7 +1,7 @@
 console.clear();
 
 // API Configuration
-const API_BASE_URL = 'http://10.0.2.2:3000/api';
+const API_BASE_URL = 'http://192.168.8.95:3000/api';
 
 // Helper: Submit score to backend
 async function submitScore(name, score) {
