@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend/data:/app/data
+      - ./sound:/sound
+    environment:
+      - PORT=3000
+    restart: unless-stopped
+    command: npm start
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  default:
+    driver: bridge
