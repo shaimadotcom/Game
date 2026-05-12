@@ -428,7 +428,19 @@ var Game = /** @class */ (function () {
         _this.scoreContainer.innerHTML = String(Math.round(countdown.value));
       },
     });
-    this.blocks = this.blocks.slice(0, 1);
+    // Fully reset blocks and visual groups for a fresh game with new color palette
+    this.blocks = [];
+    // Clear leftover meshes from newBlocks and choppedBlocks
+    while (this.newBlocks.children.length > 0) {
+      this.newBlocks.remove(this.newBlocks.children[0]);
+    }
+    while (this.choppedBlocks.children.length > 0) {
+      this.choppedBlocks.remove(this.choppedBlocks.children[0]);
+    }
+    // Add a fresh base block (index 1) to start the new tower
+    var baseBlock = new Block(undefined);
+    this.newBlocks.add(baseBlock.mesh);
+    this.blocks.push(baseBlock);
     setTimeout(function () {
       _this.startGame();
     }, cameraMoveSpeed * 1000);
