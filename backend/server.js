@@ -83,7 +83,14 @@ app.post('/api/scores', (req, res) => {
   let newScore; // Declare to hold the score object for response
 
   if (existingIndex !== -1) {
-    // Player exists: update only if new score is higher
+    // Name already exists - reject if this is a new player registering (score=0)
+    if (score === 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'This name is already taken. Please choose another name.' 
+      });
+    }
+    // Existing player submitting a score: update only if new score is higher
     if (score > scores[existingIndex].score) {
       scores[existingIndex].score = score;
       scores[existingIndex].timestamp = new Date().toISOString();

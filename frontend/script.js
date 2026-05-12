@@ -544,12 +544,17 @@ var Game = /** @class */ (function () {
       } else {
         document.getElementById('name-error').textContent = result.error || 'Failed to submit score';
       }
-    } else {
-      // Initial: store name and proceed to ready
-      this.playerName = name;
-      this.hideNameInput();
-      this.updateState(this.STATES.READY);
-    }
+     } else {
+       // Initial: check name availability via API
+       const result = await submitScore(name, 0);
+       if (result.success) {
+         this.playerName = name;
+         this.hideNameInput();
+         this.updateState(this.STATES.READY);
+       } else {
+         document.getElementById('name-error').textContent = result.error || 'Failed to register name';
+       }
+     }
   };
 
   Game.prototype.showLeaderboard = function () {
